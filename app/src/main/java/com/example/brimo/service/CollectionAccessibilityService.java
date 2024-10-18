@@ -118,7 +118,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
         writ.beginTransaction();
         for (LogBean transactionEntity : logBeans) {
             ContentValues contentValues = new ContentValues();
-            contentValues.put("notes", transactionEntity.getTransaksi());
+            contentValues.put("transaksi", transactionEntity.getTransaksi());
             contentValues.put("time", transactionEntity.getTime());
             contentValues.put("money", transactionEntity.getMoney());
             contentValues.put("md5", transactionEntity.getMd5());

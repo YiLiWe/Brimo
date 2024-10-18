@@ -23,7 +23,7 @@ public class MyDBOpenHelper extends SQLiteOpenHelper {
                 "    id    integer\n" +
                 "        constraint log_pk\n" +
                 "            primary key autoincrement,\n" +
-                "    notes  text,\n" +
+                "    transaksi  text,\n" +
                 "    time  text,\n" +
                 "    money text,\n" +
                 "    md5   text\n" +
