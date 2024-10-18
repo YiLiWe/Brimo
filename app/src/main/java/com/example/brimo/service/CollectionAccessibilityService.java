@@ -134,7 +134,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
                 String formattedBeijingTime = beijingTime.format(formatter);
                 form.add("time", formattedBeijingTime);
                 Request.Builder builder = new Request.Builder()
-                        .url("http://admin.tynpay.site/app/confirmReceiptSuccess");
+                        .url("https://admin.tynpay.site/app/confirmReceiptSuccess");
                 try (Response response = client.newCall(builder.build()).execute()) {
                     oks.add(logBean);
                     ResponseBody responseBody = response.body();
