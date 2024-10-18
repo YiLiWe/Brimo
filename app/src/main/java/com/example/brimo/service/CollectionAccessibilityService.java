@@ -126,13 +126,14 @@ public class CollectionAccessibilityService extends AccessibilityService {
             List<LogBean> oks = new ArrayList<>();
             for (LogBean logBean : beans) {
                 OkHttpClient client = new OkHttpClient();
-                FormBody.Builder form = new FormBody.Builder();
-                form.add("amount", String.valueOf(logBean.getMoney()));
-                form.add("payerName", logBean.getTransaksi());
                 ZonedDateTime beijingTime = ZonedDateTime.now().withZoneSameInstant(java.time.ZoneId.of("Asia/Shanghai"));
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 String formattedBeijingTime = beijingTime.format(formatter);
+                FormBody.Builder form = new FormBody.Builder();
+                form.add("amount", String.valueOf(logBean.getMoney()));
+                form.add("payerName", logBean.getTransaksi());
                 form.add("time", formattedBeijingTime);
+                print(String.format("金额："+logBean.getMoney()+"|名字:"+logBean.getTransaksi()+"|时间:"+formattedBeijingTime));
                 Request.Builder builder = new Request.Builder()
                         .url("https://admin.tynpay.site/app/confirmReceiptSuccess");
                 try (Response response = client.newCall(builder.build()).execute()) {
