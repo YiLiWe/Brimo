@@ -137,6 +137,7 @@ public class OkhttpUtil {
         void onError(IOException e);
     }
 
+
     public static OkhttpUtil with(List<LogBean> transactionEntities) {
         return new OkhttpUtil(transactionEntities);
     }

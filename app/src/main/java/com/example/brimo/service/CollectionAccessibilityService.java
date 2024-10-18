@@ -19,10 +19,20 @@ import com.example.brimo.utils.MD5Util;
 import com.example.brimo.helper.MyDBOpenHelper;
 
 import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import lombok.Data;
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 /**
  * 收款监听
@@ -39,8 +49,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
         path.moveTo(500, 1000); // 起始点（x, y）
         path.lineTo(500, 1500);  // 结束点（x, y）
         // 创建手势描述
-        GestureDescription.StrokeDescription strokeDescription =
-                new GestureDescription.StrokeDescription(path, 0, 1000); // 持续时间为500毫秒
+        GestureDescription.StrokeDescription strokeDescription = new GestureDescription.StrokeDescription(path, 0, 1000); // 持续时间为500毫秒
         // 使用 GestureDescription.Builder 创建 GestureDescription 实例
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(strokeDescription);
@@ -76,6 +85,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
         //获取列表集合
         List<LogBean> beans = new ArrayList<>();
         List<AccessibilityNodeInfo> recyclers = nodeInfo.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/ll_item");
+
         for (AccessibilityNodeInfo recycler : recyclers) {
             //金额(+ Rp50.000,00) 去掉小数点
             AccessibilityNodeInfo balance = First(recycler.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/tv_nominal_mutasi"));
@@ -83,20 +93,18 @@ public class CollectionAccessibilityService extends AccessibilityService {
             AccessibilityNodeInfo time = First(recycler.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/tv_time_mutasi"));
             //付款人信息(BFST708101012001508ANDHIKA RYAN:BNINIDJA)
             AccessibilityNodeInfo notes = First(recycler.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/tv_transaksi"));
-            print(String.format("%s\n%s\n%s", balance, time, notes));
-            //获取实体类
             LogBean logBean = getBean(balance, notes, time);
             if (logBean == null) continue;
             if (isEmpty(logBean)) continue;
-            if (logBean.getMoney() != 0) {
-                if (myDBOpenHelper.isEmpty("select * from log where md5=? ", new String[]{logBean.getMd5()})) {
-                    beans.add(logBean);
-                }
-            }
+            if (logBean.getMoney() == 0) continue;
+            boolean isLog = myDBOpenHelper.isEmpty("select * from log where md5=? ", new String[]{logBean.getMd5()});
+            if (!isLog) continue;
+            beans.add(logBean);
         }
 
         post(beans);
     }
+
 
     /**
      * 提交信息
@@ -106,44 +114,54 @@ public class CollectionAccessibilityService extends AccessibilityService {
     private void post(List<LogBean> beans) {
         if (beans.isEmpty()) return;
         isPost = true;
-        OkhttpUtil.with(beans).setUrl("https://www.google.com.hk/")
-                .setOnError(this::OnError)
-                .setOnSuccess(this::OnSuccess).post();
+        new Thread(new PostData(beans)).start();
     }
 
-    /**
-     * 提交成功
-     *
-     * @param logBeans
-     */
-    private void OnSuccess(List<LogBean> logBeans) {
-        print("记录成功");
-        isPost = false;
-        SQLiteDatabase writ = myDBOpenHelper.getWritableDatabase();
-        writ.beginTransaction();
-        for (LogBean transactionEntity : logBeans) {
-            ContentValues contentValues = new ContentValues();
-            contentValues.put("transaksi", transactionEntity.getTransaksi());
-            contentValues.put("time", transactionEntity.getTime());
-            contentValues.put("money", transactionEntity.getMoney());
-            contentValues.put("md5", transactionEntity.getMd5());
-            writ.insert("log", null, contentValues);
+    @Data
+    private class PostData implements Runnable {
+        private final List<LogBean> beans;
+
+        @Override
+        public void run() {
+            List<LogBean> oks = new ArrayList<>();
+            for (LogBean logBean : beans) {
+                OkHttpClient client = new OkHttpClient();
+                FormBody.Builder form = new FormBody.Builder();
+                form.add("amount", String.valueOf(logBean.getMoney()));
+                form.add("payerName", logBean.getTransaksi());
+                ZonedDateTime beijingTime = ZonedDateTime.now().withZoneSameInstant(java.time.ZoneId.of("Asia/Shanghai"));
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                String formattedBeijingTime = beijingTime.format(formatter);
+                form.add("time", formattedBeijingTime);
+                Request.Builder builder = new Request.Builder()
+                        .url("http://admin.tynpay.site/app/confirmReceiptSuccess");
+                try (Response response = client.newCall(builder.build()).execute()) {
+                    oks.add(logBean);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            instData(oks);
         }
-        writ.setTransactionSuccessful();
-        writ.endTransaction();
-        writ.close();
-    }
 
-    /**
-     * 提交失败
-     *
-     * @param e
-     */
-    private void OnError(IOException e) {
-        print("网络请求异常:" + e.getMessage());
-        isPost = false;
+        private void instData(List<LogBean> beans) {
+            if (beans.isEmpty()) return;
+            SQLiteDatabase writ = myDBOpenHelper.getWritableDatabase();
+            writ.beginTransaction();
+            for (LogBean transactionEntity : beans) {
+                ContentValues contentValues = new ContentValues();
+                contentValues.put("transaksi", transactionEntity.getTransaksi());
+                contentValues.put("time", transactionEntity.getTime());
+                contentValues.put("money", transactionEntity.getMoney());
+                contentValues.put("md5", transactionEntity.getMd5());
+                writ.insert("log", null, contentValues);
+            }
+            writ.setTransactionSuccessful();
+            writ.endTransaction();
+            writ.close();
+            isPost = false;
+        }
     }
-
 
     /**
      * 获取实体类
@@ -263,6 +281,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+
         isRun = false;
         myDBOpenHelper.close();
     }
