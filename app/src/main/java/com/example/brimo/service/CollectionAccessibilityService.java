@@ -36,11 +36,11 @@ public class CollectionAccessibilityService extends AccessibilityService {
     private void simulateSwipeUp() {
         // 创建手势路径
         Path path = new Path();
-        path.moveTo(1000, 1000); // 起始点（x, y）
-        path.lineTo(1000, 1500);  // 结束点（x, y）
+        path.moveTo(500, 1000); // 起始点（x, y）
+        path.lineTo(500, 1500);  // 结束点（x, y）
         // 创建手势描述
         GestureDescription.StrokeDescription strokeDescription =
-                new GestureDescription.StrokeDescription(path, 0, 500); // 持续时间为500毫秒
+                new GestureDescription.StrokeDescription(path, 0, 1000); // 持续时间为500毫秒
         // 使用 GestureDescription.Builder 创建 GestureDescription 实例
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(strokeDescription);
