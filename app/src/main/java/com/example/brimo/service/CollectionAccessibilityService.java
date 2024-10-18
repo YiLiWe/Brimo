@@ -137,7 +137,11 @@ public class CollectionAccessibilityService extends AccessibilityService {
                         .url("http://admin.tynpay.site/app/confirmReceiptSuccess");
                 try (Response response = client.newCall(builder.build()).execute()) {
                     oks.add(logBean);
-                    print("上传成功");
+                    ResponseBody responseBody = response.body();
+                    if (responseBody != null) {
+                        String text = responseBody.string();
+                        print("上传成功：" + text);
+                    }
                 } catch (IOException e) {
                     print("上传失败");
                     e.printStackTrace();
