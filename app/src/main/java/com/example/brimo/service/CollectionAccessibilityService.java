@@ -175,7 +175,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
             String balance = balances.toString();
             print("金额:" + balance);
             if (!balance.startsWith("+")) return;//不是入账
-            logBean.setMoney(getBalance(balance));
+            logBean.setMoney(Double.parseDouble(getBalance(balance)));
         } else if (i == 1) {//付款信息
             CharSequence balances = info.getText();
             if (balances == null) return;
@@ -201,7 +201,7 @@ public class CollectionAccessibilityService extends AccessibilityService {
      * @return
      */
     private String getBalance(String input) {
-        String regex = "Rp(\\d+)\\.\\d{2}";
+        String regex = "\\+ Rp([0-9.]+),([0-9]{2})";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(input);
         if (matcher.find()) {
