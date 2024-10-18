@@ -38,6 +38,7 @@ public class BillAdapter extends RecyclerView.Adapter<BillAdapter.ViewHolder> {
         binding.md5.setText(logEntity.getMd5());
         binding.json.setText(JSON.toJSONString(logEntity));
         binding.money.setText(String.valueOf(logEntity.getMoney()));
+        binding.name.setText(logEntity.getTransaksi());
 
         binding.more.setOnClickListener(new View.OnClickListener() {
             @Override

@@ -88,10 +88,11 @@ public class CollectionAccessibilityService extends AccessibilityService {
             LogBean logBean = getBean(balance, notes, time);
             if (logBean == null) continue;
             if (isEmpty(logBean)) continue;
-            if (myDBOpenHelper.isEmpty("select * from log where md5=? ", new String[]{logBean.getMd5()})) {
-                beans.add(logBean);
+            if (logBean.getMoney() != 0) {
+                if (myDBOpenHelper.isEmpty("select * from log where md5=? ", new String[]{logBean.getMd5()})) {
+                    beans.add(logBean);
+                }
             }
-
         }
 
         post(beans);
