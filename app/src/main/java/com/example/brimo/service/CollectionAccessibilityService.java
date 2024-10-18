@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -126,17 +127,9 @@ public class CollectionAccessibilityService extends AccessibilityService {
             List<LogBean> oks = new ArrayList<>();
             for (LogBean logBean : beans) {
                 OkHttpClient client = new OkHttpClient();
-                ZonedDateTime beijingTime = ZonedDateTime.now().withZoneSameInstant(java.time.ZoneId.of("Asia/Shanghai"));
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                String formattedBeijingTime = beijingTime.format(formatter);
-                FormBody.Builder form = new FormBody.Builder();
-                form.add("amount", String.valueOf(logBean.getMoney()));
-                form.add("payerName", logBean.getTransaksi());
-                form.add("time", formattedBeijingTime);
-                print(String.format("金额："+logBean.getMoney()+"|名字:"+logBean.getTransaksi()+"|时间:"+formattedBeijingTime));
+                print(String.format("金额：" + logBean.getMoney() + "|名字:" + logBean.getTransaksi() + "|时间:" + logBean.getTime()));
                 Request.Builder builder = new Request.Builder()
-                        .post(form.build())
-                        .url("https://admin.tynpay.site/app/confirmReceiptSuccess?amount="+logBean.getMoney()+"&payerName="+logBean.getTransaksi()+"&time="+formattedBeijingTime);
+                        .url("https://admin.tynpay.site/app/confirmReceiptSuccess?amount=" + logBean.getMoney() + "&payerName=" + logBean.getTransaksi());
                 try (Response response = client.newCall(builder.build()).execute()) {
                     oks.add(logBean);
                     ResponseBody responseBody = response.body();
