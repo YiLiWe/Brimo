@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">软件监听</string>
+    <string name="accessibility_service_description">BRImo</string>
+    <string name="accessibility_service_label">监听</string>
+</resources>

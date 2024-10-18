@@ -1,0 +1,265 @@
+package com.example.brimo.service;
+
+import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Path;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
+import com.example.brimo.bean.LogBean;
+import com.example.brimo.http.OkhttpUtil;
+import com.example.brimo.utils.MD5Util;
+import com.example.brimo.helper.MyDBOpenHelper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * 收款监听
+ */
+public class CollectionAccessibilityService extends AccessibilityService {
+    private static final String TAG = "CollectionAccessibility";
+    private boolean isPost = false, isRun = true;//判断是否已经提交订单信息
+    private MyDBOpenHelper myDBOpenHelper;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private void simulateSwipeUp() {
+        // 创建手势路径
+        Path path = new Path();
+        path.moveTo(1000, 1000); // 起始点（x, y）
+        path.lineTo(1000, 1500);  // 结束点（x, y）
+        // 创建手势描述
+        GestureDescription.StrokeDescription strokeDescription =
+                new GestureDescription.StrokeDescription(path, 0, 500); // 持续时间为500毫秒
+        // 使用 GestureDescription.Builder 创建 GestureDescription 实例
+        GestureDescription.Builder builder = new GestureDescription.Builder();
+        builder.addStroke(strokeDescription);
+        // 调用 dispatchGesture 执行手势
+        dispatchGesture(builder.build(), null, null);
+        if (isRun) {
+            print("启动滑动");
+            handler.postDelayed(this::simulateSwipeUp, 10_000);
+        }
+    }
+
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        print("服务开启");
+        myDBOpenHelper = new MyDBOpenHelper(this);
+        handler.postDelayed(this::simulateSwipeUp, 5_000);
+    }
+
+    @Override
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (isPost) return;
+        AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
+        if (nodeInfo == null) return;
+        handleNode(nodeInfo);
+    }
+
+    private void handleNode(AccessibilityNodeInfo nodeInfo) {
+        //获取列表集合
+        List<LogBean> beans = new ArrayList<>();
+        List<AccessibilityNodeInfo> recyclers = nodeInfo.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/ll_item");
+        for (AccessibilityNodeInfo recycler : recyclers) {
+            //金额(+ Rp50.000,00) 去掉小数点
+            AccessibilityNodeInfo balance = First(recycler.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/tv_nominal_mutasi"));
+            //时间(18:41:46 WIB)
+            AccessibilityNodeInfo time = First(recycler.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/tv_time_mutasi"));
+            //付款人信息(BFST708101012001508ANDHIKA RYAN:BNINIDJA)
+            AccessibilityNodeInfo notes = First(recycler.findAccessibilityNodeInfosByViewId("id.co.bri.brimo:id/tv_transaksi"));
+            print(String.format("%s\n%s\n%s", balance, time, notes));
+            //获取实体类
+            LogBean logBean = getBean(balance, notes, time);
+            if (logBean == null) continue;
+            if (isEmpty(logBean)) continue;
+            if (myDBOpenHelper.isEmpty("select * from log where md5=? ", new String[]{logBean.getMd5()})) {
+                beans.add(logBean);
+            }
+
+        }
+
+        post(beans);
+    }
+
+    /**
+     * 提交信息
+     *
+     * @param beans
+     */
+    private void post(List<LogBean> beans) {
+        if (beans.isEmpty()) return;
+        isPost = true;
+        OkhttpUtil.with(beans).setUrl("https://www.google.com.hk/")
+                .setOnError(this::OnError)
+                .setOnSuccess(this::OnSuccess).post();
+    }
+
+    /**
+     * 提交成功
+     *
+     * @param logBeans
+     */
+    private void OnSuccess(List<LogBean> logBeans) {
+        print("记录成功");
+        isPost = false;
+        SQLiteDatabase writ = myDBOpenHelper.getWritableDatabase();
+        writ.beginTransaction();
+        for (LogBean transactionEntity : logBeans) {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put("notes", transactionEntity.getTransaksi());
+            contentValues.put("time", transactionEntity.getTime());
+            contentValues.put("money", transactionEntity.getMoney());
+            contentValues.put("md5", transactionEntity.getMd5());
+            writ.insert("log", null, contentValues);
+        }
+        writ.setTransactionSuccessful();
+        writ.endTransaction();
+        writ.close();
+    }
+
+    /**
+     * 提交失败
+     *
+     * @param e
+     */
+    private void OnError(IOException e) {
+        print("网络请求异常:" + e.getMessage());
+        isPost = false;
+    }
+
+
+    /**
+     * 获取实体类
+     *
+     * @param nodeInfo
+     * @return
+     */
+    private LogBean getBean(AccessibilityNodeInfo... nodeInfo) {
+        LogBean logBean = new LogBean();
+        for (int i = 0; i < nodeInfo.length; i++) {
+            AccessibilityNodeInfo info = nodeInfo[i];
+            if (info == null) {
+                print("序列为空:" + i);
+            }
+            if (info == null) return null;
+            instData(i, logBean, info);
+        }
+        logBean.setMd5(getMd5(logBean));
+        print("实体类结果:" + JSON.toJSONString(logBean));
+        return logBean;
+    }
+
+    /**
+     * 注入信息
+     *
+     * @param i
+     * @param logBean
+     * @param info
+     */
+    private void instData(int i, LogBean logBean, AccessibilityNodeInfo info) {
+        if (i == 0) {//金额
+            CharSequence balances = info.getText();
+            if (balances == null) return;
+            String balance = balances.toString();
+            print("金额:" + balance);
+            if (!balance.startsWith("+")) return;//不是入账
+            logBean.setMoney(getBalance(balance));
+        } else if (i == 1) {//付款信息
+            CharSequence balances = info.getText();
+            if (balances == null) return;
+            print("收款信息:" + balances);
+            logBean.setTransaksi(balances.toString());
+        } else if (i == 2) {//时间
+            CharSequence balances = info.getText();
+            if (balances == null) return;
+            print("时间:" + balances);
+            logBean.setTime(balances.toString());
+        }
+    }
+
+
+    private void print(String msg) {
+        Log.d(TAG, msg);
+    }
+
+    /**
+     * 提取金额
+     *
+     * @param input
+     * @return
+     */
+    private String getBalance(String input) {
+        String regex = "Rp(\\d+)\\.\\d{2}";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(input);
+        if (matcher.find()) {
+            // 提取捕获组中的数字部分
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+
+    /**
+     * 获取第一个
+     *
+     * @param nodeInfos
+     * @return
+     */
+    private AccessibilityNodeInfo First(List<AccessibilityNodeInfo> nodeInfos) {
+        if (nodeInfos.isEmpty()) {
+            return null;
+        }
+        return nodeInfos.get(0);
+    }
+
+    /**
+     * 获取为空
+     *
+     * @return
+     */
+    private boolean isEmpty(LogBean logBean) {
+        JSONObject jsonObject = JSON.parseObject(JSON.toJSONString(logBean));
+        for (String key : jsonObject.keySet()) {
+            Object value = jsonObject.get(key);
+            if (value == null) return true;
+        }
+        return false;
+    }
+
+
+    /**
+     * 获取md5
+     *
+     * @param logBean
+     * @return
+     */
+    public String getMd5(LogBean logBean) {
+        return MD5Util.get(JSON.toJSONString(logBean));
+    }
+
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        isRun = false;
+        myDBOpenHelper.close();
+    }
+
+    @Override
+    public void onInterrupt() {
+
+    }
+}
