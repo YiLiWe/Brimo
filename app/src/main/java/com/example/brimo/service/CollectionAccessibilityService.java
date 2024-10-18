@@ -62,10 +62,14 @@ public class CollectionAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (isPost) return;
-        AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
-        if (nodeInfo == null) return;
-        handleNode(nodeInfo);
+        try {
+            if (isPost) return;
+            AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
+            if (nodeInfo == null) return;
+            handleNode(nodeInfo);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
     private void handleNode(AccessibilityNodeInfo nodeInfo) {
@@ -175,7 +179,10 @@ public class CollectionAccessibilityService extends AccessibilityService {
             String balance = balances.toString();
             print("金额:" + balance);
             if (!balance.startsWith("+")) return;//不是入账
-            logBean.setMoney(Double.parseDouble(getBalance(balance)));
+            String money = getBalance(balance);
+            if (money != null) {
+                logBean.setMoney(Double.parseDouble(money));
+            }
         } else if (i == 1) {//付款信息
             CharSequence balances = info.getText();
             if (balances == null) return;
