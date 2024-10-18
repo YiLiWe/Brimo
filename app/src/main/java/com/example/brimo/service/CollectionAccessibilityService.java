@@ -135,7 +135,8 @@ public class CollectionAccessibilityService extends AccessibilityService {
                 form.add("time", formattedBeijingTime);
                 print(String.format("金额："+logBean.getMoney()+"|名字:"+logBean.getTransaksi()+"|时间:"+formattedBeijingTime));
                 Request.Builder builder = new Request.Builder()
-                        .url("https://admin.tynpay.site/app/confirmReceiptSuccess");
+                        .post(form.build())
+                        .url("https://admin.tynpay.site/app/confirmReceiptSuccess?amount="+logBean.getMoney()+"&payerName="+logBean.getTransaksi()+"&time="+formattedBeijingTime);
                 try (Response response = client.newCall(builder.build()).execute()) {
                     oks.add(logBean);
                     ResponseBody responseBody = response.body();
