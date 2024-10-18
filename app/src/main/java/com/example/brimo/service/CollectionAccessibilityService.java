@@ -181,7 +181,8 @@ public class CollectionAccessibilityService extends AccessibilityService {
             if (!balance.startsWith("+")) return;//不是入账
             String money = getBalance(balance);
             if (money != null) {
-                logBean.setMoney(Double.parseDouble(money));
+                money = money.replace(".", "");
+                logBean.setMoney(Long.parseLong(money));
             }
         } else if (i == 1) {//付款信息
             CharSequence balances = info.getText();
